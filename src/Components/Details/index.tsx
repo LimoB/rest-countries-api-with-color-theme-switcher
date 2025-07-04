@@ -20,19 +20,20 @@ interface Country {
 }
 
 const Details: React.FC = () => {
+  const { alpha } = useParams<{ alpha: string }>(); // Use alpha for the dynamic country code
   const [data, setData] = useState<Country | null>(null);
   const [allCountries, setAllCountries] = useState<Country[]>([]);
   const [currencies, setCurrencies] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [borders, setBorders] = useState<Country[]>([]);
-  const [updateData, setUpdateData] = useState('');
-  const { name } = useParams<{ name: string }>();
+  const [loading, setLoading] = useState<boolean>(false);
   const global = useContext(GlobalContext);
   const navigate = useNavigate();
 
   if (!global) throw new Error('GlobalContext must be used within a GlobalStorage provider');
-  const { darkTheme, loading, setLoading } = global;
+  const { darkTheme } = global;
 
+  // Fetch all countries data and the specific country details based on the alpha code
   useEffect(() => {
     const loadCountries = async () => {
       setLoading(true);
@@ -41,7 +42,7 @@ const Details: React.FC = () => {
         const json: Country[] = await response.json();
         setAllCountries(json);
 
-        const current = json.find(c => c.alpha2Code.toLowerCase() === name?.toLowerCase());
+        const current = json.find(c => c.alpha2Code.toLowerCase() === alpha?.toLowerCase());
         setData(current || null);
       } catch (err) {
         console.error("Failed to load country data.json", err);
@@ -49,39 +50,24 @@ const Details: React.FC = () => {
         setLoading(false);
       }
     };
-    loadCountries();
-  }, [name]);
-
-  useEffect(() => {
-    if (!updateData || !allCountries.length) return;
-
-    const next = allCountries.find(c => c.alpha2Code === updateData);
-    if (next) {
-      setCurrencies([]);
-      setBorders([]);
-      setLanguages([]);
-      setData(next);
-      navigate(`/${updateData}`);
+    if (alpha) {
+      loadCountries();
     }
+  }, [alpha]);
 
-    setUpdateData('');
-  }, [updateData, allCountries]);
-
+  // Update state when borders are clicked to load another country
   useEffect(() => {
-    if (!data) return;
+    if (!data || !allCountries.length) return;
 
-    setLoading(true);
     setCurrencies(data.currencies?.map(c => c.name) || []);
     setLanguages(data.languages?.map(l => l.name) || []);
 
-    const borderData =
-      data.borders?.map(code =>
-        allCountries.find(c => c.alpha2Code === code)
-      ).filter(Boolean) as Country[] || [];
+    const borderData = data.borders?.map(code =>
+      allCountries.find(c => c.alpha2Code === code)
+    ).filter(Boolean) as Country[] || [];
 
     setBorders(borderData);
-    setLoading(false);
-  }, [data]);
+  }, [data, allCountries]);
 
   return (
     <>
@@ -134,7 +120,7 @@ const Details: React.FC = () => {
                         {borders.map(border => (
                           <button
                             key={border.alpha2Code}
-                            onClick={() => setUpdateData(border.alpha2Code)}
+                            onClick={() => navigate(`/country/${border.alpha2Code}`)} // Update navigation to `/country/:alpha`
                             className="px-4 py-1 bg-white dark:bg-darkBlue dark:text-white rounded shadow text-sm hover:bg-gray-200 dark:hover:bg-opacity-80 transition"
                           >
                             {border.name}
